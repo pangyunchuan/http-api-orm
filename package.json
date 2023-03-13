@@ -1,6 +1,6 @@
 {
   "name": "http-api-orm",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "pangyunchuan",
   "license": "MIT",
   "main": "./dist/dist.umd.js",
@@ -8,7 +8,7 @@
   "types": "types/lib/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pangyunchuan/layer-app"
+    "url": "https://github.com/pangyunchuan/http-api-orm"
   },
   "description": "A api orm implemented by ts 。一个ts的api-orm。",
   "keywords": [

@@ -15,104 +15,151 @@ npm install
 
 ```
 
-##基础使用
+## 基础使用
+
 ```typescript
 import ApiModel from "http-api-orm";
-class MyApiModel extends ApiModel{
+
+class MyApiModel extends ApiModel {
     url = 'xxx/1.json'
 }
 
 const f = new MyApiModel()
-f.run().then(r=>{
-    
+f.getResData().then(() => {
+//    
 })
 ```
 
 ## ApiModel 配置说明
+
 |  字段   | 说明  |
 |  ----  | ----  |
 | url  | 请求地址 |
-| http  | axios实例，默然创建一个 |
-| axiosConfig  | 模型的axios默认配置 |
+| http  | axios实例，默认创建一个 |
+| defaultConfig  | 模型的axios默认配置 |
 | params  | 请求的get参数 |
 | data  | 请求的data参数 |
-| res  | 模型数据也是请求响应数据 |
-| abortController  | 用于终止请求 |
+| resData  | 模型数据也是请求响应数据 |
+| cancelMan  | 可选的,请求终止管理类 |
 | loading  | 接口loading控制 |
 | reqMid  | 请求中间件 |
-| reqErrMid  | 请求异常中间件 |
 | resMid  | 响应中间件 |
-| resErrMid  | 响应异常中间件 |
-
-
+| finallyMid  | 请求结束中间件(无论成功失败,若有异常信息,或记录在 request.error 中) |
+| request  | 请求类,只读 |
 
 ## 完整配置使用说明
+
 ```typescript
-//响应成功时 模型如何获取数据中间件
-const apiDataGet:ApiResponseMid = async function (r){
-    this.res = r.data.apiContent
-    return r;
-}
+import ApiModel, {CancelMan, Params} from "http-api-orm";
+import axios, {AxiosResponse, AxiosRequestConfig} from "axios";
+import {ApiFinallyMid, ApiRequestMid, ApiResponseMid} from "http-api-orm/types/lib/ApiModel";
 
-class MyApiModel extends ApiModel {
-    url = 'xxxx'
-    params = new Params(() => ({test: 1, test1: '55'}))
-    res = {d11: '123', t: false, count: 0}
-    // loading = false
-    loading = new Loading(function (a) {
-        //返回loaidng实例,以elmentPlus 为例
-        return ElLoading.service(a)
-    }, function (i) {
-        //关闭加载
-        i.close()
-    }, {
-        delayStartMs: 1000,
-        delayCloseMs: 800
-    })
-    
-    //加载控制,当使用loading 时 需要按如下配置 loading中间件,以启用和关闭
-    //由于各个项目响应数据获取方式不一致,需自行配置响应数据获取,建议创建一个中间件以处理
-    reqMid = [loadingStart]
-    reqErrMid = [loadingClose]
-    resMid = [loadingClose,apiDataGet]
-    resErrMid = [loadingClose]
+export default class MyApiModel extends ApiModel {
+    url = '/xx/xx'
+    //请求get参数,
+    params = new Params(() => ({
+        id: '',
+        detail: true
+    }))
+    resData = {
+        hasChildren: true,
+        id: "",
+        level: 0,
+        name: "",
+        note: "",
+        org: 0,
+        pid: "",
+        state: 0,
+    }
+    loading = false
+    cancelMan = new CancelMan()
+
+    //请求前处理
+    reqMid: (ApiRequestMid)[] = [
+        function (m, c) {
+            console.log('reqMid1', m.loading)
+            //若此处 抛出异常 或 reject 将跳过 后续 reqMid 和 resMid 进入 finallyMid
+            // throw new Error()
+            // return Promise.reject('')
+            // m.cancelMan?.cancel()
+            return c
+        },
+        function (m, c) {
+            console.log('reqMid2')
+            return c
+        },
+    ]
+    //请求响应处理
+    resMid: ApiResponseMid[] = [
+        function (m, c) {
+            console.log('resMid1', m.loading)
+            //若此处 抛出异常 或 reject 将跳过 后续 resMid  进入 finallyMid
+            // throw new Error()
+            // return Promise.reject('')
+            return c
+        },
+        function (m, c) {
+            console.log('resMid2', m.loading)
+            return c
+        },
+    ]
+    //请求结束处理
+    finallyMid: ApiFinallyMid[] = [
+        function (m, c) {
+            console.log('f', 'isCancel', m.loading)
+            //若此处 抛出异常 或 reject 仍然会执行后续方法
+            // throw new Error()
+            // return Promise.reject('')
+            if (axios.isCancel(c)) {
+                console.log('isCancel', c)
+            }
+        },
+        function (m, c) {
+            console.log('f', 'isAxiosError')
+            if (axios.isAxiosError(c)) {
+                console.log('isAxiosError', c)
+            }
+            return c
+        },
+        function (m, c) {
+            console.log('f', 'isError')
+            if (m.request.isError(c)) {
+                console.log('error', c)
+            }
+        },
+        function (m, c) {
+            console.log('f', 'isAxiosResponse')
+            if (m.request.isAxiosResponse(c)) {
+                console.log('isAxiosResponse', c)
+            }
+        },
+    ]
 
 
-    //以下均为模型数据 res 的操作
-
-    //设置响应转换
-    get tText() {
-        return this.res.t ? '有效' : '无效'
+    getResData(c?: AxiosRequestConfig) {
+        return super.getResData(c).then((abc) => {
+            this.resData = abc.data;
+            return abc
+        });
     }
 
-    updateState(v: boolean) {
-        this.res.t = !v;
-        this.res.count++
+    //局部请求,避免某些简单接口也要创建一个模型
+    changeState() {
+        //修改模型的某个属性到远端
+        let state = this.resData.state
+        state = !state ? 1 : 0;
+        //这里会使用模型的 中间件
+        return this.request.post('/xx/change', {state}).then((abc) => {
+            this.resData.state = state
+            return abc;
+        });
     }
 }
 
-const api = new MyApiModel()
+const apiM = new MyApiModel()
 
-//使用参数
-api.params.d.test
-//设置 参数 test1 初始和重置值 回调
-api.params.myResetCall = () => {
-    return {
-        test1: '123'
-    }
-}
-//设置 参数 转换 回调; 将请求数据转为formData
-api.params.transformCall = () => {
-    const f = new FormData()
-    f.set('ttt', api.params.d.test1)
-    return f
-}
+apiM.getResData()
 
-api.run().then(r=>{
-  //  使用模型
-  api.res.t;
-  api.tText
-})
 ```
 
 
