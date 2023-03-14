@@ -53,6 +53,7 @@ export default class Request {
             ...this.apiModel.defaultConfig,
             ...unimportantConfig,
             url: this.apiModel.url,
+            method: this.apiModel.method,
             params: this.apiModel.params?.transform(),
             data: this.apiModel.data?.transform(),
             signal: this.apiModel.cancelMan?.signal,
@@ -148,14 +149,14 @@ export default class Request {
     }
 
     postForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.apiModel.http.postForm<T, R, D>(url, data, config)
     }
 
     putForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.apiModel.http.putForm<T, R, D>(url, data, config)
     }
 
     patchForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.apiModel.http.patchForm<T, R, D>(url, data, config)
     }
 }

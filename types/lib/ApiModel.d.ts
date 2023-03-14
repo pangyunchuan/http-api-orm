@@ -1,5 +1,5 @@
 import Params from "./child/Params";
-import { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import { AxiosInstance, AxiosRequestConfig, AxiosResponse, Method } from "axios";
 import Loading from "./child/Loading";
 import Model from "./Model";
 import Request from "./child/Request";
@@ -10,6 +10,7 @@ export declare type ApiFinallyMid<This extends ApiModel = ApiModel> = (m: This, 
 export default abstract class ApiModel extends Model {
     readonly http: AxiosInstance;
     abstract url: string;
+    method: Method;
     readonly defaultConfig: AxiosRequestConfig;
     params?: Params<any>;
     data?: Params<any>;

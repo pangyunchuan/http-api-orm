@@ -15,7 +15,11 @@ export default class CancelMan {
         return r.signal
     }
 
-    cancel(k: string = 'default') {
+    cancel() {
+        CancelMan.cancel(this.k)
+    }
+
+    static cancel(k: string = 'default') {
         if (k in CancelMan.map) {
             CancelMan.map[k]?.abort();
             delete CancelMan.map[k]

@@ -3,5 +3,6 @@ export default class CancelMan {
     constructor(k?: string);
     private static map;
     get signal(): AbortSignal;
-    cancel(k?: string): void;
+    cancel(): void;
+    static cancel(k?: string): void;
 }

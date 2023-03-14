@@ -1,5 +1,5 @@
 import Params from "./child/Params";
-import axios, {AxiosInstance, AxiosRequestConfig, AxiosResponse} from "axios";
+import axios, {AxiosInstance, AxiosRequestConfig, AxiosResponse, Method} from "axios";
 import Loading from "./child/Loading";
 import Model from "./Model";
 import Request from "./child/Request";
@@ -12,6 +12,7 @@ export type ApiFinallyMid<This extends ApiModel = ApiModel> = (m: This, re?: any
 export default abstract class ApiModel extends Model {
     readonly http: AxiosInstance = axios.create()
     abstract url: string
+    method: Method = 'get'
     //可配置一些通用请求配置
     readonly defaultConfig: AxiosRequestConfig = {}
     //请求数据
