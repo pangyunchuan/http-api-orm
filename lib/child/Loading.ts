@@ -2,15 +2,31 @@ import {debounce} from "lodash-es";
 import {DebouncedFunc} from "lodash-es/debounce";
 
 type ApiOption = {
-    //开始延时时间
+    /**
+     * 开始延时时间,毫秒,默认 500
+     */
     delayStartMs: number,
-    //结束延时时间
+    /**
+     * 结束延时时间,毫秒 默认 300
+     */
     delayCloseMs: number,
 }
 
 export default class Loading<Inst, Option extends Record<string, any>> {
+    /**
+     * 开始方法
+     * @protected
+     */
     protected waitStart: DebouncedFunc<any>
+    /**
+     * 结束方法
+     * @protected
+     */
     protected waitClose: DebouncedFunc<any>
+    /**
+     * 加载实例,可能存在
+     * @protected
+     */
     protected inst?: any
 
     /**
@@ -29,10 +45,10 @@ export default class Loading<Inst, Option extends Record<string, any>> {
     ) {
         this.waitStart = debounce(() => {
             this.inst = getInstAndStartCall(this.option);
-        }, 1000)
+        }, 500)
         this.waitClose = debounce(() => {
             closeCall(this.inst)
-        }, 500)
+        }, 300)
     }
 
     /**
@@ -51,6 +67,10 @@ export default class Loading<Inst, Option extends Record<string, any>> {
         this.waitClose();
     }
 
+    /**
+     * 加载配置,
+     * @protected
+     */
     protected option: Option = {} as Option
 
     /**

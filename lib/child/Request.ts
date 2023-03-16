@@ -1,14 +1,27 @@
 import {AxiosRequestConfig, AxiosResponse} from "axios";
-import Loading from "./Loading";
 import ApiModel, {ApiFinallyMid, ApiRequestMid, ApiResponseMid} from "../ApiModel";
 
 export default class Request {
     protected readonly apiModel: ApiModel
+    /**
+     * 是否模型获取数据,仅当此时,才会变更模型 loading状态
+     * @private
+     */
+    private isGetResData = false
 
-    constructor(m: ApiModel) {
-        this.apiModel = m
+    /**
+     * @param m
+     * @param isGetResData  仅当 模型获取数据时,,回调才有apiModel 会使用loading
+     */
+    constructor(m: ApiModel, isGetResData = false) {
+        this.apiModel = m;
+        this.isGetResData = isGetResData
     }
 
+    /**
+     * 接口异常信息,在finally 中被传入
+     * @protected
+     */
     protected error: any | undefined
 
     isError(v: any): v is Error {
@@ -16,63 +29,102 @@ export default class Request {
     }
 
     isAxiosConfig(v: any): v is AxiosRequestConfig {
-        return typeof v === 'object' && ('url' in v) && ('method' in v) && ('params' in v) && ('data' in v)
+        if (v !== 'object') {
+            return false
+        }
+        for (const k of ['url', 'method', 'params', 'data'] as any[]) {
+            if (!(k in v)) {
+                return false
+            }
+        }
+        return true
     }
 
     isAxiosResponse(v: any): v is AxiosResponse {
-        return typeof v === 'object' && ('config' in v) && ('status' in v) && ('data' in v)
+        if (v !== 'object') {
+            return false
+        }
+        for (const k of ['config', 'status', 'data'] as any[]) {
+            if (!(k in v)) {
+                return false
+            }
+        }
+        return true
     }
 
-    //返回一个顺序执行，链式调用的方法，接受一个初始值
+    /**
+     * 返回一个函数,接受一个初始Promise 参数;
+     * 将接受的回调函数数组使用Promise 以顺序链式执行的
+     * @param type  创建的函数要执行 那种promise 回调
+     * @param calls 要执行的回调数组
+     * @private
+     */
     private composeAsync(type: 'then' | 'catch' | 'finally', ...calls: (ApiRequestMid | ApiResponseMid | ApiFinallyMid)[]) {
         return (startPromise: Promise<any>) => {
             return calls.reduce((lastPromise, f) => {
                 return (<any>lastPromise[type])((i?: any) => {
-                    return f(this.apiModel, type === 'then' ? i : this.error)
+                    //获取resData 才传递apiModel
+                    return f(type === 'then' ? i : this.error, (this.isGetResData ? this.apiModel : undefined))
                 })
             }, startPromise)
         }
     }
 
+    /**
+     * 改变loading
+     * @param state
+     * @private
+     */
     private changeLoading(state: boolean) {
-        if (this.apiModel.loading === undefined) {
+        if (!this.isGetResData) {
             return
-        } else if (typeof this.apiModel.loading === 'boolean') {
-            this.apiModel.loading = state;
-        } else if (this.apiModel.loading instanceof Loading) {
-            this.apiModel.loading[state ? 'start' : 'close']()
+        }
+        this.apiModel.loading = state;
+        if (this.apiModel.loadingMan) {
+            this.apiModel.loadingMan[state ? 'start' : 'close']()
         }
     }
 
-    //获取配置
-    protected getConfig(important: boolean, c: AxiosRequestConfig = {}): AxiosRequestConfig {
-        let importantConfig;
-        let unimportantConfig;
-        important ? (importantConfig = c) : (unimportantConfig = c);
+    /**
+     * 获取一个新的配置信息
+     * @param c
+     * @protected
+     */
+    protected getConfig(c: AxiosRequestConfig = {}): AxiosRequestConfig {
         return {
             ...this.apiModel.defaultConfig,
-            ...unimportantConfig,
             url: this.apiModel.url,
             method: this.apiModel.method,
             params: this.apiModel.params?.transform(),
-            data: this.apiModel.data?.transform(),
+            data: this.apiModel.postData?.transform(),
             signal: this.apiModel.cancelMan?.signal,
-            ...importantConfig,
+            ...c,
         }
     }
 
-    //执行请求
-    protected async run<T = any, R = AxiosResponse<T>, D = any>(c: AxiosRequestConfig): Promise<R> {
+    /**
+     * 执行请求
+     * @param c
+     * @param withForm
+     * @private
+     */
+    private async trueRequest<T = any, R = AxiosResponse<T>, D = any>(c: AxiosRequestConfig = {}, withForm = false): Promise<R> {
         this.error = undefined
         //执行请求中间件
         const req = this.composeAsync('then', ...this.apiModel.reqMid)(
-            Promise.resolve(c)
-        ).then(config => {
+            Promise.resolve(this.getConfig(c))
+        ).then(c => {
+            const config = c as AxiosRequestConfig
             this.changeLoading(true)
             //执行响应中间件
-            return this.composeAsync('then', ...this.apiModel.resMid)(
-                this.apiModel.http.request<T, R, D>(config)
-            )
+            let req;
+            if (withForm && config.data && config.method) {
+                req = this.apiModel.http[`${config.method.toLowerCase()}Form` as 'postForm'](config.url as string, config.data, config)
+            } else {
+                req = this.apiModel.http.postForm(config.url as string, config.data, config)
+            }
+
+            return this.composeAsync('then', ...this.apiModel.resMid)(req);
         }).catch(e => {
             //捕获异常
             this.error = e;
@@ -90,26 +142,32 @@ export default class Request {
         return req
     }
 
-    //获取模型数据
-    getResData(c: AxiosRequestConfig = {}) {
-        return this.run(this.getConfig(false, c))
-    }
-
-
-    //发送独立请求，此时传入的配置有最高优先级，可覆盖模型配置参数,后续均与axios一致的，别名方法
-    request<T = any, R = AxiosResponse<T>, D = any>(c: AxiosRequestConfig = {}): Promise<R> {
-        return this.run<T, R, D>(this.getConfig(true, c))
-    }
-
-    getUri(config: AxiosRequestConfig = {}) {
-        return this.apiModel.http.getUri(this.getConfig(true, config))
-    }
 
     private reqNoData<T = any, R = AxiosResponse<T>, D = any>(url: string, config: AxiosRequestConfig<D> = {}): Promise<R> {
-        return this.request({
+        return this.trueRequest({
             ...config,
             url
         })
+    }
+
+    private reqWithData<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config: AxiosRequestConfig<D> = {}): Promise<R> {
+        return this.trueRequest(this.getConfig({
+            ...config,
+            url,
+            data,
+        }))
+    }
+
+    /**
+     * 后续 为 同 axios 请求方法
+     * @param config
+     */
+    getUri(config: AxiosRequestConfig = {}) {
+        return this.apiModel.http.getUri(this.getConfig(config))
+    }
+
+    request<T = any, R = AxiosResponse<T>, D = any>(config?: AxiosRequestConfig<D>): Promise<R> {
+        return this.trueRequest(this.getConfig(config))
     }
 
     get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R> {
@@ -128,35 +186,27 @@ export default class Request {
         return this.reqNoData(url, config)
     }
 
-    private reqWithData<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config: AxiosRequestConfig<D> = {}): Promise<R> {
-        return this.request({
-            ...config,
-            url,
-            data,
-        })
-    }
-
     post<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.reqWithData(url, data, config)
     }
 
     put<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.reqWithData(url, data, config)
     }
 
     patch<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.reqWithData<T, R, D>(url, data, config)
+        return this.reqWithData(url, data, config)
     }
 
     postForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.apiModel.http.postForm<T, R, D>(url, data, config)
+        return this.trueRequest(this.getConfig({...config, url, data,}), true)
     }
 
     putForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.apiModel.http.putForm<T, R, D>(url, data, config)
+        return this.trueRequest(this.getConfig({...config, url, data,}), true)
     }
 
     patchForm<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.apiModel.http.patchForm<T, R, D>(url, data, config)
+        return this.trueRequest(this.getConfig({...config, url, data,}), true)
     }
 }

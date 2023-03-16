@@ -2,15 +2,18 @@
  * 参数管理类
  * 提供数据还原重置操作
  */
-export default class Params<D extends Record<string | number, any>> {
-    d: D;
+import Model from "../Model";
+
+export default class Params<D extends Record<string | number, any> = {}> extends Model{
+    data: D = {} as D;
 
     /**
      * @param f   数据获取方法，避免直接给数据时 引用 对重置等造成的干扰
      */
     constructor(f: () => D) {
+        super()
         this.oriFun = f;
-        this.d = f();
+        this.data = f();
     }
 
     /**
@@ -48,7 +51,7 @@ export default class Params<D extends Record<string | number, any>> {
         if (this._transformCall) {
             return this._transformCall()
         }
-        return this.d
+        return this.data
     }
 
     /**
@@ -56,7 +59,7 @@ export default class Params<D extends Record<string | number, any>> {
      */
     reset() {
         let mF: Partial<D> = (this._myResetCall ?? (() => ({})))();
-        this.d = {
+        this.data = {
             ...this.oriFun(),
             ...mF
         }

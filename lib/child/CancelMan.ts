@@ -1,12 +1,24 @@
 export default class CancelMan {
-    private readonly k: string
+    /**
+     * 模型标记
+     * @private
+     */
+    private readonly k: string | symbol
 
-    constructor(k: string = 'default') {
+    /**
+     * 接受一个标记
+     * @param k
+     */
+    constructor(k: string | symbol = 'default') {
         this.k = k
     }
 
-    private static map: Record<string, AbortController | undefined> = {}
+    private static map: Record<string | symbol, AbortController | undefined> = {}
 
+    /**
+     * 获取 AbortController.signal
+     * 以终止请求
+     */
     get signal() {
         let r = CancelMan.map[this.k];
         if (!r) {
@@ -15,11 +27,18 @@ export default class CancelMan {
         return r.signal
     }
 
+    /**
+     * 终端当前实例 的 k 对应的请求
+     */
     cancel() {
         CancelMan.cancel(this.k)
     }
 
-    static cancel(k: string = 'default') {
+    /**
+     * 中断传入 k 对应的请求
+     * @param k
+     */
+    static cancel(k: string | symbol = 'default') {
         if (k in CancelMan.map) {
             CancelMan.map[k]?.abort();
             delete CancelMan.map[k]
