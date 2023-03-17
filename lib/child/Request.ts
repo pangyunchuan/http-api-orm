@@ -121,7 +121,7 @@ export default class Request {
             if (withForm && config.data && config.method) {
                 req = this.apiModel.http[`${config.method.toLowerCase()}Form` as 'postForm'](config.url as string, config.data, config)
             } else {
-                req = this.apiModel.http.postForm(config.url as string, config.data, config)
+                req = this.apiModel.http.request(config)
             }
 
             return this.composeAsync('then', ...this.apiModel.resMid)(req);
@@ -167,7 +167,7 @@ export default class Request {
     }
 
     request<T = any, R = AxiosResponse<T>, D = any>(config?: AxiosRequestConfig<D>): Promise<R> {
-        return this.trueRequest(this.getConfig(config))
+        return this.trueRequest(config)
     }
 
     get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R> {
