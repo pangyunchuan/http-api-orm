@@ -44,11 +44,11 @@ export default class ApiModel extends Model {
     /**
      * get 参数
      */
-    params: Params|ReturnType<Params['proxyData']> = new Params(() => ({}))
+    params: Params | ReturnType<Params['proxyData']> = new Params(() => ({}))
     /**
      * post请求 data.header中的 data部分
      */
-    postData: Params|ReturnType<Params['proxyData']> = new Params(() => ({}))
+    postData: Params | ReturnType<Params['proxyData']> = new Params(() => ({}))
     /**
      * 中断请求管理
      */
@@ -108,42 +108,39 @@ export default class ApiModel extends Model {
     }
 
     /**
-     * 基于当前类新建一个模型实例
-     * 使用传入参数覆盖默认值
-     * 用于复杂程度中等的接口
-     * @param c
-     */
-    createNew<C extends Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'>
-        & { params: Params|ReturnType<Params['proxyData']>, postData: Params|ReturnType<Params['proxyData']>, data: Record<string | number, any> }>>(c: C): Omit<this, keyof C> & C {
-        const t = new (this.constructor as any) as any
-        for (const k in this) {
-            if (k in c) {
-                t[k] = (c as any)[k]
-            }
-        }
-
-        return t
-    }
-
-    /**
      * 基于当前类新建一个模型实例,并代理访问 data
      * 使用传入参数覆盖默认值
      * 用于复杂程度中等的接口
      * @param c
      */
-    createNewProxyData<C extends Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'>
-        & { params: Params|ReturnType<Params['proxyData']>, postData: Params|ReturnType<Params['proxyData']>, data: Record<string | number, any> }>>(
+    createNew<D extends {
+        params?: Params | ReturnType<Params['proxyData']>,
+        postData?: Params | ReturnType<Params['proxyData']>,
+        data: Record<string | number, any>
+    },
+        C extends D & Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'>>>(
         c: C
-    ): Omit<this, keyof C> & C & (Omit<this, keyof C> & C)['data'] {
-        const t = new (this.constructor as any) as any
+    ): Omit<this, keyof C | keyof Required<D> | keyof this['data']> & Required<C> & C['data'] {
+        const newApi = new (this.constructor as any) as any
 
-        for (const k in this) {
-            if (k in c) {
-                t[k] = (c as any)[k]
+        for (const k of ['http', 'url', 'method', 'cancelMan', 'loadingMan', 'reqMid', 'resMid', 'finallyMid']) {
+            if (!(k in c)) {
+                newApi[k] = this[k as keyof this]
             }
         }
 
-        const p = (t as this).proxyData()
+        c = {
+            ...{
+                params: new Params(() => ({})),
+                postData: new Params(() => ({})),
+            }, ...c
+        }
+
+        for (const cKey in c) {
+            newApi[cKey] = c[cKey]
+        }
+
+        const p = (newApi as this).proxyData()
 
         return p as any
     }

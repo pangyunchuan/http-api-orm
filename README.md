@@ -1,8 +1,13 @@
 ## 安装
 
-``` 
-安装
-npm install
+``` shell 
+npm install http-api-orm
+```
+
+## 使用 http-api-orm 创建项目
+
+``` shell 
+npm init http-api-orm
 ```
 
 ## 简要说明
@@ -16,9 +21,10 @@ npm install
 ```
 
 ## 注意问题
+
 ```typescript
 import ApiModel, {Params} from "http-api-orm";
-import {reactive, watch, watchEffect} from "vue";
+import {reactive} from "vue";
 
 // 假定接口返回数据格式为
 const apiInfo = {
@@ -30,6 +36,7 @@ const apiInfo = {
 }
 
 class MyApiModel extends ApiModel {
+    // Params 也提供 proxyData
     params = new Params(() => ({
         id: '',
         detail: true
@@ -44,10 +51,10 @@ class MyApiModel extends ApiModel {
         pid: "",
         state: 0,
     }
-    test(){
-        //建议使用 proxy 都使用
+
+    test() {
+        //在内部也可用proxy
         const proxy = this.proxyData()
-        //代理访问
         proxy.pid = '4555'
     }
 }
@@ -55,34 +62,13 @@ class MyApiModel extends ApiModel {
 //vue3 中使用  reactive 注意 as 类型,以避免 传入 子组件时,类型异常
 const api1 = reactive(new MyApiModel()) as MyApiModel;
 //代理访问类型
-const apiProxy = reactive(new MyApiModel().proxyData()) as ReturnType<MyApiModel['proxyData']>;
+//推荐如下两种类型设置。在 template 中 也能准确提供类型识别。
+const apiProxy = reactive(new MyApiModel().proxyData()) as MyApiModel & MyApiModel['data'];
+// const temp  = new MyApiModel().proxyData()
+// const api = reactive(temp) as typeof temp
 
-
-//代理访问数据时,,仅能触发代理访问数据观察
-function proxyTest(){
-    setTimeout(()=>{
-        apiProxy.pid = '123'
-    },1000)
-
-    watch(()=>apiProxy,()=>{
-        //会触发
-        console.log('proxyDeep',apiProxy)
-    },{deep:true})
-    watchEffect(()=>{
-        //不会触发  需要 apiProxy.data.pid = '123'
-        console.log('proxy',apiProxy.data)
-    })
-
-    watchEffect(()=>{
-        //会触发,且  apiProxy.pid = '123'  即使值不改变,也会重复触发。
-        console.log('proxy',apiProxy.pid)
-    })
-
-    watchEffect(()=>{
-        //不会触发
-        console.log('noProxy',apiProxy.pid)
-    })
-}
+//如下方式标记类型，在template中可能会类型提示不够准确
+// const apiProxy = reactive(new MyApiModel().proxyData()) as ReturnType<MyApiModel['proxyData']>;
 ```
 
 ## 基础使用
@@ -315,7 +301,7 @@ api2.getResData().then(r => {
 ## 取消请求
 
 ```typescript
-import ApiModel, {CancelMan,  Params} from "http-api-orm";
+import ApiModel, {CancelMan, Params} from "http-api-orm";
 import {reactive} from "vue";
 
 export default class MyApiLoadingModel extends ApiModel {
@@ -343,13 +329,12 @@ api.cancelMan.cancel()
 CancelMan.cancel()
 ```
 
-
-
 ## axios 默认配置
 
 ```typescript
 import ApiModel from "http-api-orm";
-import type {AxiosRequestConfig}from "axios";
+import type {AxiosRequestConfig} from "axios";
+
 export default class MyApiLoadingModel extends ApiModel {
     //要从此类开始,启用一个新的默认配置
     protected static _defaultConfig: AxiosRequestConfig = {}
@@ -364,7 +349,6 @@ export default class MyApiLoadingModel extends ApiModel {
     }
 }
 ```
-
 
 ## 拦截器,中间件说明
 
@@ -471,12 +455,10 @@ const apiInfo = {
 export default class MyApiModel extends ApiModel {
     //中等复杂度请求
     list() {
-        // 不代理 访问数据
-        // return this.createNew()
-
+        
         //根据当前实例创建一个新的实例,但使用传入的参数替换 原有的参数,并获得类型支持
-        //代理访问数据
-        return this.createNewProxyData({
+        //会代理访问数据
+        return this.createNew({
                 url: '/xxx/list',
                 params: new Params(() => ({page: 1, pageSize: 20, stauts: 0})),
                 data: {total: 0, list: [] as any[]}
@@ -494,8 +476,6 @@ export default class MyApiModel extends ApiModel {
 
 
 ```
-
-
 
 ## 完整模型示例
 

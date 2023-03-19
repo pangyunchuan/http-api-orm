@@ -82,25 +82,14 @@ export default class ApiModel extends Model {
      */
     getResData(c?: AxiosRequestConfig): Promise<AxiosResponse<any, any>>;
     /**
-     * 基于当前类新建一个模型实例
-     * 使用传入参数覆盖默认值
-     * 用于复杂程度中等的接口
-     * @param c
-     */
-    createNew<C extends Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'> & {
-        params: Params | ReturnType<Params['proxyData']>;
-        postData: Params | ReturnType<Params['proxyData']>;
-        data: Record<string | number, any>;
-    }>>(c: C): Omit<this, keyof C> & C;
-    /**
      * 基于当前类新建一个模型实例,并代理访问 data
      * 使用传入参数覆盖默认值
      * 用于复杂程度中等的接口
      * @param c
      */
-    createNewProxyData<C extends Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'> & {
-        params: Params | ReturnType<Params['proxyData']>;
-        postData: Params | ReturnType<Params['proxyData']>;
+    createNew<D extends {
+        params?: Params | ReturnType<Params['proxyData']>;
+        postData?: Params | ReturnType<Params['proxyData']>;
         data: Record<string | number, any>;
-    }>>(c: C): Omit<this, keyof C> & C & (Omit<this, keyof C> & C)['data'];
+    }, C extends D & Partial<Pick<this, 'http' | 'url' | 'method' | 'cancelMan' | 'loadingMan' | 'reqMid' | 'resMid' | 'finallyMid'>>>(c: C): Omit<this, keyof C | keyof Required<D> | keyof this['data']> & Required<C> & C['data'];
 }

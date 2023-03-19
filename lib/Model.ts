@@ -16,20 +16,29 @@ export default class Model {
      */
     proxyData(): this & this['data'] {
         if (!this._proxyData) {
-            this._proxyData = new Proxy(this, {
-                get(target: Model, p: string, receiver: any): any {
+            const pd = this._proxyData = new Proxy(this, {
+                get(target: Model, p: keyof Model, receiver: any): any {
                     if (p in target) {
-                        return (target as any)[p]
+                        return target[p]
                     } else if (p in target.data) {
+                        if (receiver !== pd) {
+                            //让 顶级代理处理来获取data。例vu3 响应式处理
+                            return receiver.data[p]
+                        }
                         return target.data[p]
                     }
                     return undefined
                 },
-                set(target: Model, p: string, newValue: any, receiver: any): boolean {
+                set(target: Model, p: keyof Model, newValue: any, receiver: any): boolean {
                     if (p in target) {
-                        (target as any)[p] = newValue
+                        target[p] = newValue
                     } else if (target.data && p in target.data) {
-                        target.data[p] = newValue
+                        if (receiver !== pd) {
+                            //让 顶级代理处理来处理data。例vu3 响应式处理
+                            receiver.data[p] = newValue
+                        } else {
+                            target.data[p] = newValue
+                        }
                     }
                     return true
                 },
